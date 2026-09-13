@@ -7,6 +7,7 @@ using Tkmm.Core.IO.Readers;
 using Tkmm.Core.Providers;
 using Tkmm.Core.Services;
 using Tkmm.Core.TkOptimizer;
+using Tkmm.Core.WiiXLaunch;
 using TkSharp;
 using TkSharp.Core;
 using TkSharp.Core.Extensions;
@@ -114,6 +115,7 @@ public static class TKMM
 
             await merger.MergeAsync(GetMergeTargets(profile), ct).ConfigureAwait(false);
             TkOptimizerService.Context.Apply(writer, profile);
+            TkWiiXLaunchDeployer.DeployToConfiguredTargets(profile);
 
             // For atmosphere 20.0 support with TotK Optimizer
             if (Config.Shared.UseRomfslite && TkOptimizerStore.IsProfileEnabled(profile)) {
@@ -153,6 +155,7 @@ public static class TKMM
         TkMerger.MergeCheats(writer, targets);
         TkMerger.MergeExeFs(writer, targets);
         TkMerger.MergeSubSdk(writer, targets);
+        TkWiiXLaunchDeployer.DeployToConfiguredTargets(profile);
 
         var delta = Stopwatch.GetElapsedTime(startTime);
         TkLog.Instance.LogInformation("Elapsed time: {TotalMilliseconds}ms", delta.TotalMilliseconds);
