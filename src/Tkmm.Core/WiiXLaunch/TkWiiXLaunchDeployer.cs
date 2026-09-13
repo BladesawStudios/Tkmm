@@ -29,7 +29,7 @@ public static class TkWiiXLaunchDeployer
             }
             catch (Exception ex)
             {
-                TkLog.Instance.LogError(ex, "Failed to deploy WiiXLaunch modules to '{SdCardRoot'.", 
+                TkLog.Instance.LogError(ex, "Failed to deploy WiiXLaunch modules to '{SdCardRoot}'.", 
                     sdCardRoot);
             }
         }

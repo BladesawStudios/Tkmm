@@ -6,12 +6,9 @@ public static class TkSdCardTargets
 {
     public static IEnumerable<string> EnumerateWriteRoots(string? ephemeralSdCardRootPath = null)
     {
-        if (SWITCH)
-        {
+        #if SWITCH
             yield return "/flash";
-        }
-        else
-        {
+        # else
             if (!string.IsNullOrWhiteSpace(Config.Shared.EmulatorPath)
                 && TkEmulatorHelper.GetSdPath(Config.Shared.EmulatorPath) is { } emulatorSdPath
                 && !string.IsNullOrWhiteSpace(emulatorSdPath))
@@ -27,7 +24,7 @@ public static class TkSdCardTargets
             {
                 yield return ephemeralSdCardRootPath;
             }
-        }
+        #endif
     }
     
     public static bool HasWriteRoot(string? ephemeralSdCardRootPath = null) => EnumerateWriteRoots(ephemeralSdCardRootPath).Any();

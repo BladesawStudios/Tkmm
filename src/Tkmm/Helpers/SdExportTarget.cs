@@ -122,7 +122,7 @@ file sealed class MtpSdExportTarget : ISdExportTarget
             {
                 if (Directory.Exists(staging))
                 {
-                    Directory.Delete(staging recursive: true);
+                    Directory.Delete(staging, recursive: true);
                 }
             }
             catch
