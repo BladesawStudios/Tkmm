@@ -21,21 +21,33 @@ public static class TkWiiXLaunchDeployer
     {
         profile ??= TKMM.ModManager.GetCurrentProfile();
 
+        var hasTarget = false;
+
         foreach (var sdCardRoot in TkSdCardTargets.EnumerateWriteRoots())
         {
+            hasTarget = true;
+
             try
             {
-                Deploy(profile, GetModsFolder(sdCardRoot));
+                var count = Deploy(profile, GetModsFolder(sdCardRoot));
+                TkLog.Instance.LogInformation("Deployed {Count} WiiXLaunch module(s) to '{SdCardRoot}'.",
+                    count, sdCardRoot);
             }
             catch (Exception ex)
             {
-                TkLog.Instance.LogError(ex, "Failed to deploy WiiXLaunch modules to '{SdCardRoot}'.", 
+                TkLog.Instance.LogError(ex, "Failed to deploy WiiXLaunch modules to '{SdCardRoot}'.",
                     sdCardRoot);
             }
         }
+
+        if (!hasTarget)
+        {
+            TkLog.Instance.LogWarning(
+                "No SD card target is configured, so WiiXLaunch modules were not deployed.");
+        }
     }
 
-    public static void Deploy(TkProfile profile, string destinationFolder, Func<string, bool>? targetHasFile = null,
+    public static int Deploy(TkProfile profile, string destinationFolder, Func<string, bool>? targetHasFile = null,
         bool wipeModules = true)
     {
         Directory.CreateDirectory(destinationFolder);
@@ -50,8 +62,9 @@ public static class TkWiiXLaunchDeployer
         }
         
         HashSet<string> seededThisRun = new (StringComparer.OrdinalIgnoreCase);
+        var deployed = 0;
 
-        foreach (var changelog in TkModManager.GetMergeTargets(profile))
+        foreach (var changelog in TkModManager.GetMergeTargets(profile, static _ => true))
         {
             if (changelog.Source is not { } source)
             {
@@ -64,13 +77,17 @@ public static class TkWiiXLaunchDeployer
                 {
                     continue;
                 }
-                
-                DeployModule(source, relativePath, destinationFolder, targetHasFile, seededThisRun);
+
+                if (DeployModule(source, relativePath, destinationFolder, targetHasFile, seededThisRun)) {
+                    deployed++;
+                }
             }
         }
+
+        return deployed;
     }
 
-    private static void DeployModule(ITkSystemSource source, string relativePath, string destinationFolder,
+    private static bool DeployModule(ITkSystemSource source, string relativePath, string destinationFolder,
         Func<string, bool> targetHasFile, HashSet<string> seededThisRun)
     {
         TkWiiXLaunchModule module;
@@ -79,7 +96,7 @@ public static class TkWiiXLaunchDeployer
         {
             if (!TkWiiXLaunchModule.TryRead(input, relativePath, out module))
             {
-                return;
+                return false;
             }
         }
         
@@ -88,6 +105,8 @@ public static class TkWiiXLaunchDeployer
         CopyFile(source, relativePath, Path.Combine(destinationFolder, fileName));
         
         DeployResources(source, module.ModId, fileName, destinationFolder, targetHasFile, seededThisRun);
+        
+        return true;
     }
 
     private static void DeployResources(ITkSystemSource source, string modId, string moduleFileName,
