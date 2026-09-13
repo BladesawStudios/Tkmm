@@ -176,6 +176,7 @@ public sealed partial class MergeActions : GuardedActionGroup<MergeActions>
                         progress,
                         wipeCompleted: () => Dispatcher.UIThread.Post(() =>
                             progressView.BeginCopy(Locale["MergeActions_ExportingToSdCard"])));
+                    target.PublishWiiXLaunch(profile);
                 }, ct);
             }
             catch (Exception ex) {

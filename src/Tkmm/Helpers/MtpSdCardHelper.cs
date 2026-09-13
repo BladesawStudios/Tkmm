@@ -6,6 +6,7 @@ using System.Runtime.Versioning;
 using MediaDevices;
 using Tkmm.Core;
 using Tkmm.Core.Helpers;
+using Tkmm.Core.WiiXLaunch;
 
 namespace Tkmm.Helpers;
 
@@ -14,6 +15,7 @@ public static class MtpSdCardHelper
 {
     private const string CONTENTS_RELATIVE_PATH = "atmosphere/contents/0100F2C0115B6000";
     private const string IPS_RELATIVE_PATH = "atmosphere/exefs_patches/TKMM";
+    private const string WIIXLAUNCH_RELATIVE_PATH = "WiiXLaunch/mods/" + TkWiiXLaunchDeployer.TitleId;
     private const int COPY_FLAGS = 4 | 16 | 512 | 1024; // SILENT | NOCONFIRMATION | NOCONFIRMMKDIR | NOERRORUI
     private const int IN_USE = unchecked((int)0x800700AA);
     private const int ACCESS_DENIED = unchecked((int)0x80070005);
@@ -119,6 +121,8 @@ public static class MtpSdCardHelper
             }
         });
     }
+    
+    public static string GetWiiXLaunchModsPath(string mtpRootPath) => Combine(mtpRootPath, WIIXLAUNCH_RELATIVE_PATH);
 
     private static List<MediaDevice> GetDevices()
     {
@@ -130,6 +134,64 @@ public static class MtpSdCardHelper
         }
     }
 
+    public static bool FileExists(string deviceId, string modsPath, string relativePath)
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return false;
+        }
+
+        return WithDevice(deviceId,
+            device => device.FileExists(Combine(modsPath, relativePath.Replace('\\', '/'))));
+    }
+
+    public static void PublishWiiXLaunch(string deviceId, string deviceName, string mtpRootPath, string stagingFolder)
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            throw new PlatformNotSupportedException("MTP is only supported on Windows.");
+        }
+
+        if (!Directory.Exists(stagingFolder))
+        {
+            return;
+        }
+        
+        RunSta(() =>
+        {
+            var modsPath = GetWiiXLaunchModsPath(mtpRootPath);
+
+            WithDevice(deviceId, device =>
+            {
+                if (!device.DirectoryExists(modsPath))
+                {
+                    return;
+                }
+
+                foreach (var remote in device.EnumerateFiles(modsPath, "*.wxlm", SearchOption.TopDirectoryOnly))
+                {
+                    try
+                    {
+                        device.DeleteFile(remote);
+                    }
+                    catch
+                    {
+                        // Boop
+                    }
+                }
+            });
+            
+            dynamic shell = CreateShell();
+            dynamic storage = ResolveStorage(shell, deviceName, mtpRootPath.Trim('\\'));
+            dynamic modsFolder = EnsureFolder(storage, WIIXLAUNCH_RELATIVE_PATH);
+
+            foreach (var entry in Directory.EnumerateFileSystemEntries(stagingFolder))
+            {
+                CopyHere(modsFolder, entry);
+            }
+        });
+    }
+    
     private static void WithDevice(string deviceId, Action<MediaDevice> action)
         => WithDevice(deviceId, device => {
             action(device);

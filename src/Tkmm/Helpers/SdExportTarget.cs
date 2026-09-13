@@ -2,6 +2,8 @@
 using System.Runtime.Versioning;
 using Tkmm.Core;
 using Tkmm.Core.Helpers;
+using Tkmm.Core.WiiXLaunch;
+using TkSharp.Core.Models;
 
 namespace Tkmm.Helpers;
 
@@ -15,6 +17,8 @@ public interface ISdExportTarget : IDisposable
         bool useRomfsLite,
         IProgress<(int Copied, int Total)>? progress,
         Action? wipeCompleted = null);
+
+    void PublishWiiXLaunch(TkProfile profile);
 }
 
 public static class SdExportTarget
@@ -46,6 +50,11 @@ file sealed class FileSystemSdExportTarget(string rootPath) : ISdExportTarget
         TKMM.EmptyMergeOutput(contentPath);
         wipeCompleted?.Invoke();
         DirectoryHelper.CopyMergeOutput(mergeOutputFolder, contentPath, useRomfsLite, overwrite: true, progress);
+    }
+
+    public void PublishWiiXLaunch(TkProfile profile)
+    {
+        TkWiiXLaunchDeployer.Deploy(profile, TkWiiXLaunchDeployer.GetModsFolder(_rootPath));
     }
 
     public void Dispose()
@@ -91,6 +100,36 @@ file sealed class MtpSdExportTarget : ISdExportTarget
             LocalIpsDirectory,
             progress,
             wipeCompleted);
+    }
+
+    public void PublishWiiXLaunch(TkProfile profile)
+    {
+        var staging = Path.Combine(Path.GetTempPath(), "tkmm", "mtp-wiixlaunch", Ulid.NewUlid().ToString());
+
+        try
+        {
+            var modsPath = MtpSdCardHelper.GetWiiXLaunchModsPath(_mtpRootPath);
+
+            TkWiiXLaunchDeployer.Deploy(profile, staging,
+                targetHasFile: relativePath => MtpSdCardHelper.FileExists(_deviceId, modsPath, relativePath),
+                wipeModules: false);
+
+            MtpSdCardHelper.PublishWiiXLaunch(_deviceId, _deviceName, _mtpRootPath, staging);
+        }
+        finally
+        {
+            try
+            {
+                if (Directory.Exists(staging))
+                {
+                    Directory.Delete(staging recursive: true);
+                }
+            }
+            catch
+            {
+                // ignored
+            }
+        }
     }
 
     public void Dispose()
